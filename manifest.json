@@ -1,0 +1,25 @@
+{
+  "name": "Venusian Gems",
+  "short_name": "VenusianGems",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "venusian.png",
+      "sizes": "470x465",  
+      "type": "image/png"
+    },
+    {
+      "src": "venusian.png",
+      "sizes": "192x192",  
+      "type": "image/png"
+    },
+    {
+      "src": "venusian.png",
+      "sizes": "512x512",  
+      "type": "image/png"
+    }
+  ]
+}

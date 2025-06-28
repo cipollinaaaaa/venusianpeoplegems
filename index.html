@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Venusian Gems</title>
+  <style>
+    body {
+      background-color: #000;
+      color: white;
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      /* Aumentamos el padding inferior y superior para asegurar espacio extra */
+      padding: 20px 0 50px 0; /* Un poco de padding arriba también por si acaso */
+      overflow: hidden; /* Prevent scrollbars */
+      display: flex; /* Usamos flexbox para organizar los elementos */
+      justify-content: center; /* Centra el contenido horizontalmente */
+      align-items: center; /* Centra el contenido verticalmente */
+      min-height: 100vh; /* Asegura que ocupe al menos el 100% del alto de la ventana */
+    }
+
+    /* Nuevo contenedor para la información de lado */
+    .info-panel {
+      display: flex;
+      flex-direction: column; /* Organiza los elementos verticalmente */
+      align-items: flex-start; /* Alinea los elementos a la izquierda dentro del panel */
+      justify-content: flex-start; /* Alinea los elementos al inicio del panel */
+      padding: 20px;
+      gap: 15px; /* Espacio entre los elementos del panel */
+      position: absolute; /* Posicionamiento absoluto para controlar su ubicación */
+      top: 50%; /* Centrar verticalmente */
+      left: 30px; /* Un poco más de margen a la izquierda */
+      transform: translateY(-50%); /* Ajuste para centrado vertical */
+      z-index: 10; /* Asegurar que esté por encima del tablero */
+    }
+
+    h1 {
+      font-size: 2.5em; /* Un poco más pequeño para caber mejor */
+      color: #00ffe7;
+      text-shadow: 0 0 10px #00ffe7, 0 0 20px #00ffe7;
+      margin: 0; /* Eliminar margen para que no empuje */
+      white-space: nowrap; /* Evitar que el texto se rompa */
+    }
+
+    .score-timer {
+      font-size: 1.6em;
+      color: #fff;
+      text-shadow: 0 0 5px #fff;
+      margin-top: 10px; /* Espacio debajo del título */
+    }
+
+    #timer {
+      font-size: 1.6em;
+      color: #ff0033;
+      text-shadow: 0 0 5px #ff0033;
+      font-weight: bold;
+    }
+
+    #resetButton {
+      padding: 10px 20px;
+      font-size: 1.2em;
+      background-color: #ff0033;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 20px; /* Espacio encima del botón */
+    }
+
+    #board {
+      /* Ajustar el ancho y alto total del contenedor del tablero */
+      /* 8 gemas * 68px/gema + 7 gaps * 6px/gap = 544px + 42px = 586px */
+      width: 586px; 
+      height: 586px; 
+      display: grid;
+      /* Ajustar las columnas según el nuevo tamaño de celda */
+      grid-template-columns: repeat(8, 68px); 
+      /* Reducimos el gap para un tablero más compacto */
+      gap: 6px; 
+      margin: 0; /* Eliminar margen para que flexbox lo posicione */
+      position: relative;
+      z-index: 0;
+    }
+
+    .cell {
+      /* Nuevo tamaño para las gemas */
+      width: 68px; 
+      height: 68px;
+      border-radius: 18px;
+      cursor: grab;
+      transition: transform 0.2s ease-in-out, box-shadow 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Ajustar el tamaño de la fuente para que quepa bien en la gema más pequeña */
+      font-size: 26px; 
+      font-weight: bold;
+      background: linear-gradient(145deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05));
+      box-shadow:
+        inset 0 0 8px rgba(255,255,255,0.4),
+        inset 0 5px 12px rgba(0,0,0,0.3),
+        0 2px 8px rgba(0,0,0,0.4);
+      color: white; /* Default text color for gems */
+    }
+
+    .cell:hover {
+      transform: scale(1.1);
+      box-shadow:
+        inset 0 0 10px rgba(255,255,255,0.6),
+        0 0 15px #fff,
+        0 0 30px #fff;
+    }
+
+    /* Colores únicos */
+    .red { background-color: #ff0033; }
+    .yellow { background-color: #ffdd00; color: #333; }
+    .green { background-color: #33cc33; }
+    .pink { background-color: #ff66cc; }
+    .purple { background-color: #aa33ff; }
+    .orange { background-color: #ff8800; color: #333; }
+    .aqua { background-color: #00cccc; }
+
+    /* Imágenes - no text content for these */
+    .venusian {
+      background-image: url('venusian.png');
+      background-size: cover;
+      background-position: center;
+      color: transparent; /* Hide text for image-based gems */
+    }
+
+    .mano {
+      background-image: url('mano.gif');
+      background-size: cover;
+      background-position: center;
+      color: transparent; /* Hide text for image-based gems */
+    }
+
+    /* Lightning effect element */
+    #lightning {
+      position: fixed; /* Debe seguir cubriendo toda la ventana */
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 999; /* Below overlays, above board */
+    }
+
+    .flash {
+      animation: flashUp 0.2s forwards;
+    }
+
+    @keyframes flashUp {
+      0% { opacity: 0.8; }
+      100% { opacity: 0; }
+    }
+
+    /* Message Overlay (Win/Loss) */
+    #messageOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.1), rgba(0,0,0,0.95));
+      display: none; /* Hidden by default */
+      justify-content: center;
+      align-items: center;
+      z-index: 10000; /* Highest z-index to cover everything */
+      backdrop-filter: blur(4px);
+      flex-direction: column;
+      text-align: center;
+    }
+
+    #messageOverlay h2 {
+      font-size: 3em;
+      color: #ff0;
+      text-shadow: 0 0 10px #ff0, 0 0 20px #ff0, 0 0 30px #ff0;
+      animation: blink 1s infinite;
+      margin-bottom: 20px;
+    }
+
+    #messageOverlay .message-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+    }
+
+    #messageOverlay img.message-img {
+      width: 120px;
+      height: auto;
+      animation: float 2s infinite ease-in-out;
+    }
+
+    #messageOverlay button.message-reset-button {
+      margin-top: 30px;
+      padding: 12px 24px;
+      font-size: 1.2em;
+      background-color: #ff0033;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0px); }
+    }
+
+    #messageOverlay.game-over h2 {
+        color: #ff0033;
+        text-shadow: 0 0 10px #ff0033, 0 0 20px #ff0033, 0 0 30px #ff0033;
+    }
+  </style> <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000"/> <!-- Cambia el color si quieres -->
+
+<script>
+  // Registra el Service Worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('service-worker.js').then(function(registration) {
+        console.log('ServiceWorker registrado con exito:', registration.scope);
+      }).catch(function(err) {
+        console.log('Fallo el registro del ServiceWorker:', err);
+      });
+    });
+  }
+</script>
+
+</head>
+<body>
+
+  <div class="info-panel">
+    <h1>Venusian Gems</h1>
+    <div class="score-timer" id="score">Score: 0</div>
+    <div class="score-timer" id="timer">Time: 60</div>
+    <button id="resetButton" onclick="resetGame()">🔄 Reset</button>
+  </div>
+  
+  <div id="board"></div>
+
+  <div id="lightning"></div>
+
+  <audio id="matchSoundThree" src="venusci.mp3" preload="auto"></audio>
+  <audio id="matchSoundFour" src="venusciously.mp3" preload="auto"></audio>
+  <audio id="backgroundMusic" src="venusound.mp3" loop preload="auto"></audio>
+  <audio id="winFanfareSound" src="venusliscious.mp3" preload="auto"></audio>
+  <audio id="gameOverSound" src="loser.mp3" preload="auto"></audio>
+
+  <div id="messageOverlay">
+    <div class="message-content">
+        <h2 id="messageTitle"></h2>
+        <img id="messageImg1" src="" alt="" class="message-img">
+        <img id="messageImg2" src="" alt="" class="message-img">
+        <button class="message-reset-button" onclick="resetGame()">Play Again ➡️</button>
+    </div>
+  </div>
+
+  <script>
+    const board = document.getElementById("board");
+    const scoreDisplay = document.getElementById("score");
+    const timerDisplay = document.getElementById("timer");
+    const messageOverlay = document.getElementById("messageOverlay");
+    const messageTitle = document.getElementById("messageTitle");
+    const messageImg1 = document.getElementById("messageImg1");
+    const messageImg2 = document.getElementById("messageImg2");
+    const lightning = document.getElementById("lightning");
+
+    const htmlMatchSoundThree = document.getElementById("matchSoundThree");
+    const htmlMatchSoundFour = document.getElementById("matchSoundFour");
+    const htmlBackgroundMusic = document.getElementById("backgroundMusic");
+    // References to the HTML Audio Elements for win/lose
+    const htmlWinFanfareSound = document.getElementById("winFanfareSound");
+    const htmlGameOverSound = document.getElementById("gameOverSound");
+
+    let audioContext = null;
+    let backgroundMusicPlaying = false;
+    // Audio buffers for the new sounds
+    let winSoundLoadedBuffer = null;
+    let loseSoundLoadedBuffer = null;
+
+    let gameLoop;
+    let timerCountdown;
+    let timeLeft = 60;
+    let gameActive = false;
+
+    const letterMap = {
+      red: 'V', yellow: 'E', green: 'N', pink: 'U', purple: 'S', orange: 'I', aqua: 'A',
+      venusian: 'N',
+      mano: 'N'
+    };
+
+    const colors = ["red", "yellow", "green", "pink", "purple", "orange", "aqua", "venusian", "mano"];
+    const boardSize = 8;
+    const totalCells = boardSize * boardSize;
+    let cells = [];
+    let cellIdBeingDragged = null;
+    let score = 0;
+
+    // --- AudioContext Initialization & Sound Loading ---
+    async function initializeAudioContextAndLoadSounds() {
+        if (!window.AudioContext && !window.webkitAudioContext) {
+            console.warn("Web Audio API not supported. Audio might not play.");
+            return;
+        }
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            console.log("AudioContext initialized.");
+        }
+
+        const resumeContextOnGesture = () => {
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    console.log('AudioContext resumed successfully.');
+                    document.documentElement.removeEventListener('mousedown', resumeContextOnGesture);
+                    document.documentElement.removeEventListener('keydown', resumeContextOnGesture);
+                    document.documentElement.removeEventListener('touchstart', resumeContextOnGesture);
+                    if (!backgroundMusicPlaying && gameActive) {
+                        htmlBackgroundMusic.play().catch(e => console.warn("Background music failed to play after context resume:", e));
+                        backgroundMusicPlaying = true;
+                    }
+                }).catch(e => console.error('Failed to resume AudioContext:', e));
+            }
+        };
+        // Add event listeners to resume AudioContext on first user interaction
+        document.documentElement.addEventListener('mousedown', resumeContextOnGesture, { once: true });
+        document.documentElement.addEventListener('keydown', resumeContextOnGesture, { once: true });
+        document.documentElement.addEventListener('touchstart', resumeContextOnGesture, { once: true });
+
+
+        try {
+            // Load the new win sound (venusliscious.mp3)
+            winSoundLoadedBuffer = await loadSoundBuffer(htmlWinFanfareSound.src);
+            console.log("Win sound (venusliscious.mp3) loaded into buffer.");
+            // Load the new lose sound (loser.mp3)
+            loseSoundLoadedBuffer = await loadSoundBuffer(htmlGameOverSound.src);
+            console.log("Game Over sound (loser.mp3) loaded into buffer.");
+        } catch (e) {
+            console.error("Error pre-loading sounds for AudioContext:", e);
+        }
+    }
+
+    async function loadSoundBuffer(url) {
+        if (!audioContext) throw new Error("AudioContext not ready for buffer load.");
+        try {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            return await audioContext.decodeAudioData(arrayBuffer);
+        } catch (e) {
+            console.error(`Failed to load audio buffer from ${url}:`, e);
+            throw e;
+        }
+    }
+
+    function playAudioContextSound(buffer, volume = 1.0) {
+        if (!audioContext || !buffer) {
+            console.warn("AudioContext not ready or buffer missing. Cannot play sound via AudioContext.");
+            return false;
+        }
+
+        // Ensure AudioContext is running before playing
+        if (audioContext.state === 'suspended') {
+            audioContext.resume().then(() => {
+                console.log('AudioContext resumed for sound playback.');
+                const source = audioContext.createBufferSource();
+                source.buffer = buffer;
+                const gainNode = audioContext.createGain();
+                gainNode.gain.value = volume;
+                source.connect(gainNode).connect(audioContext.destination);
+                source.start(0);
+                console.log(`Playing AudioContext sound: ${buffer.duration.toFixed(2)}s at volume ${volume}`);
+            }).catch(e => {
+                console.error("Failed to resume AudioContext for sound playback:", e);
+                return false; // Indicate failure
+            });
+        } else {
+            const source = audioContext.createBufferSource();
+            source.buffer = buffer;
+            const gainNode = audioContext.createGain();
+            gainNode.gain.value = volume;
+            source.connect(gainNode).connect(audioContext.destination);
+            source.start(0);
+            console.log(`Playing AudioContext sound: ${buffer.duration.toFixed(2)}s at volume ${volume}`);
+        }
+        return true; // Indicate success (or attempt initiated)
+    }
+
+    // --- Game Logic ---
+    function getRandomColor() {
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function createBoard() {
+      cells = [];
+      board.innerHTML = '';
+
+      for (let i = 0; i < totalCells; i++) {
+        const cell = document.createElement("div");
+        cell.setAttribute("draggable", true);
+        cell.setAttribute("id", i);
+        cell.classList.add("cell");
+
+        const color = getRandomColor();
+        cell.classList.add(color);
+        cell.textContent = letterMap[color] || "";
+
+        cell.addEventListener("dragstart", dragStart);
+        cell.addEventListener("dragover", dragOver);
+        cell.addEventListener("drop", dragDrop);
+        cell.addEventListener("dragenter", dragEnter);
+        cell.addEventListener("dragleave", dragLeave);
+        cell.addEventListener("dragend", dragEnd);
+
+        cell.addEventListener("mousedown", handleFirstGameInteraction, { once: true });
+
+        board.appendChild(cell);
+        cells.push(cell);
+      }
+      console.log("Board created with initial gems.");
+    }
+
+    function handleFirstGameInteraction() {
+        if (!gameActive) {
+            console.log("First gem interaction detected. Starting game and background music.");
+            
+            if (!backgroundMusicPlaying) {
+                htmlBackgroundMusic.play().then(() => {
+                    backgroundMusicPlaying = true;
+                    console.log("Background music (venusound.mp3) started successfully.");
+                }).catch(e => {
+                    console.warn("Background music autoplay prevented. Waiting for AudioContext resume.", e);
+                });
+            }
+
+            startGameLoop();
+            gameActive = true;
+        }
+    }
+
+    function startGameLoop() {
+      clearInterval(gameLoop);
+      clearInterval(timerCountdown);
+
+      timeLeft = 60;
+      timerDisplay.textContent = `Time: ${timeLeft}`;
+      
+      gameLoop = setInterval(() => {
+        if (!gameActive) {
+            clearInterval(gameLoop);
+            return;
+        }
+        checkMatchesAndRefill();
+        checkWin();
+      }, 200);
+
+      timerCountdown = setInterval(() => {
+        if (!gameActive) {
+            clearInterval(timerCountdown);
+            return;
+        }
+        timeLeft--;
+        timerDisplay.textContent = `Time: ${timeLeft}`;
+        if (timeLeft <= 0) {
+          endGameByTime();
+        }
+      }, 1000);
+      console.log("Game loop and timer started.");
+    }
+
+    function resetGame() {
+      console.log("Resetting game...");
+      gameActive = false;
+      clearInterval(gameLoop);
+      clearInterval(timerCountdown);
+
+      messageOverlay.style.display = "none";
+      messageOverlay.classList.remove('game-over');
+      
+      score = 0;
+      updateScore();
+      createBoard();
+
+      if (htmlBackgroundMusic) {
+        htmlBackgroundMusic.pause();
+        htmlBackgroundMusic.currentTime = 0;
+      }
+      backgroundMusicPlaying = false;
+      console.log("Game reset complete. Ready for new game.");
+    }
+
+    function dragStart(e) {
+      cellIdBeingDragged = parseInt(e.target.id);
+    }
+
+    function dragOver(e) { e.preventDefault(); }
+    function dragEnter(e) { e.preventDefault(); }
+    function dragLeave() {}
+
+    function dragDrop(e) {
+        e.preventDefault();
+        const cellIdBeingReplaced = parseInt(e.target.id);
+
+        if (cellIdBeingDragged === null || isNaN(cellIdBeingDragged)) {
+            console.warn("dragDrop called without a valid cellIdBeingDragged.");
+            return;
+        }
+
+        const rowDragged = Math.floor(cellIdBeingDragged / boardSize);
+        const colDragged = cellIdBeingDragged % boardSize;
+        const rowReplaced = Math.floor(cellIdBeingReplaced / boardSize);
+        const colReplaced = cellIdBeingReplaced % boardSize;
+
+        const isAdjacent = (
+            (Math.abs(rowDragged - rowReplaced) === 1 && colDragged === colReplaced) ||
+            (Math.abs(colDragged - colReplaced) === 1 && rowDragged === rowReplaced)
+        );
+
+        if (isAdjacent) {
+            swapGems(cellIdBeingDragged, cellIdBeingReplaced);
+            checkMatchesAndRefill();
+        } else {
+            // console.log(`Invalid move: IDs ${cellIdBeingDragged} and ${cellIdBeingReplaced} are not adjacent.`);
+        }
+        cellIdBeingDragged = null;
+    }
+
+    function dragEnd() {
+        // Handled in dragDrop
+    }
+
+    function swapGems(id1, id2) {
+        const cell1 = cells[id1];
+        const cell2 = cells[id2];
+
+        const tempColor1 = cell1.classList[1];
+        const tempText1 = cell1.textContent;
+        const tempColor2 = cell2.classList[1];
+        const tempText2 = cell2.textContent;
+
+        cell1.className = "cell";
+        if (tempColor2) cell1.classList.add(tempColor2);
+        cell1.textContent = tempText2;
+
+        cell2.className = "cell";
+        if (tempColor1) cell2.classList.add(tempColor1);
+        cell2.textContent = tempText1;
+    }
+
+    function playMatchSound(type = "triple") {
+      if (type === "quad") {
+        htmlMatchSoundFour.currentTime = 0;
+        htmlMatchSoundFour.play().catch(e => console.error("Error playing quad sound:", e));
+      } else {
+        htmlMatchSoundThree.currentTime = 0;
+        htmlMatchSoundThree.play().catch(e => console.error("Error playing triple sound:", e));
+      }
+    }
+
+    function showLightningFlash() {
+      lightning.classList.add("flash");
+      setTimeout(() => lightning.classList.remove("flash"), 200);
+    }
+
+    function collectMatches() {
+        let matchesFound = false;
+        let matchedIndexes = new Set();
+
+        for (let i = 0; i < totalCells; i++) {
+            if (i % boardSize <= boardSize - 3) {
+                const color1 = cells[i]?.classList[1];
+                if (!color1 || color1 === "cell") continue;
+
+                if (cells[i+1]?.classList[1] === color1 && cells[i+2]?.classList[1] === color1) {
+                    matchesFound = true;
+                    matchedIndexes.add(i); matchedIndexes.add(i+1); matchedIndexes.add(i+2);
+                    if (i % boardSize <= boardSize - 4 && cells[i+3]?.classList[1] === color1) {
+                        matchedIndexes.add(i+3);
+                        if (i % boardSize <= boardSize - 5 && cells[i+4]?.classList[1] === color1) {
+                            matchedIndexes.add(i+4);
+                        }
+                    }
+                }
+            }
+        }
+
+        for (let i = 0; i < totalCells; i++) {
+            if (i < totalCells - (boardSize * 2)) {
+                const color1 = cells[i]?.classList[1];
+                if (!color1 || color1 === "cell") continue;
+
+                if (cells[i + boardSize]?.classList[1] === color1 && cells[i + (boardSize * 2)]?.classList[1] === color1) {
+                    matchesFound = true;
+                    matchedIndexes.add(i); matchedIndexes.add(i + boardSize); matchedIndexes.add(i + (boardSize * 2));
+                    if (i < totalCells - (boardSize * 3) && cells[i + (boardSize * 3)]?.classList[1] === color1) {
+                        matchedIndexes.add(i + (boardSize * 3));
+                        if (i < totalCells - (boardSize * 4) && cells[i + (boardSize * 4)]?.classList[1] === color1) {
+                            matchedIndexes.add(i + (boardSize * 4));
+                        }
+                    }
+                }
+            }
+        }
+        return Array.from(matchedIndexes);
+    }
+
+    function checkMatchesAndRefill() {
+        let matchesFoundThisCycle = false;
+        let iteration = 0;
+        const maxIterations = 10;
+
+        do {
+            iteration++;
+            if (iteration > maxIterations) {
+                console.error("checkMatchesAndRefill: Max iterations reached. Possible logic issue or very complex cascade.");
+                break;
+            }
+
+            let matches = collectMatches();
+            if (matches.length > 0) {
+                matchesFoundThisCycle = true;
+                playMatchSound(matches.length >= 4 ? "quad" : "triple");
+                showLightningFlash();
+                
+                matches.forEach(idx => {
+                    cells[idx].className = "cell";
+                    cells[idx].textContent = "";
+                    score += 10;
+                });
+                updateScore();
+                
+                moveGemsDown();
+            } else {
+                matchesFoundThisCycle = false;
+            }
+        } while (matchesFoundThisCycle);
+
+        return matchesFoundThisCycle;
+    }
+
+    function updateScore() {
+      scoreDisplay.textContent = "Score: " + score;
+    }
+
+    function moveGemsDown() {
+        for (let col = 0; col < boardSize; col++) {
+            let emptySpots = [];
+            for (let row = boardSize - 1; row >= 0; row--) {
+                const idx = row * boardSize + col;
+                if (cells[idx].classList.length === 1) {
+                    emptySpots.push(idx);
+                } else if (emptySpots.length > 0) {
+                    const targetIdx = emptySpots.shift();
+                    
+                    cells[targetIdx].className = "cell";
+                    cells[targetIdx].classList.add(cells[idx].classList[1]);
+                    cells[targetIdx].textContent = cells[idx].textContent;
+
+                    cells[idx].className = "cell";
+                    cells[idx].textContent = "";
+
+                    emptySpots.push(idx);
+                }
+            }
+        }
+
+        for (let i = 0; i < totalCells; i++) {
+            if (cells[i].classList.length === 1) {
+                const newColor = getRandomColor();
+                cells[i].classList.add(newColor);
+                cells[i].textContent = letterMap[newColor] || "";
+            }
+        }
+    }
+
+    function checkWin() {
+        if (!gameActive) return;
+
+        const boardLetters = cells.map(cell => {
+            const cellClasses = Array.from(cell.classList);
+            // Handle 'venusian' and 'mano' gems contributing to 'N'
+            if (cellClasses.includes('venusian') || cellClasses.includes('mano')) {
+                return 'N';
+            }
+            return cell.textContent || "";
+        }).join('');
+        const targetWord = "VENUSIAN";
+
+        // Check horizontally
+        for (let row = 0; row < boardSize; row++) {
+            const rowString = boardLetters.substring(row * boardSize, (row * boardSize) + boardSize);
+            if (rowString.includes(targetWord)) {
+                console.log(`WIN Condition met: 'VENUSIAN' found horizontally in row ${row}. Full row string: "${rowString}"`);
+                showWinMessage();
+                return;
+            }
+        }
+
+        // Check vertically
+        for (let col = 0; col < boardSize; col++) {
+            let colString = '';
+            for (let row = 0; row < boardSize; row++) {
+                const cellClasses = Array.from(cells[col + (row * boardSize)].classList);
+                 if (cellClasses.includes('venusian') || cellClasses.includes('mano')) {
+                    colString += 'N';
+                } else {
+                    colString += cells[col + (row * boardSize)].textContent || "";
+                }
+            }
+            if (colString.includes(targetWord)) {
+                console.log(`WIN Condition met: 'VENUSIAN' found vertically in column ${col}. Full column string: "${colString}"`);
+                showWinMessage();
+                return;
+            }
+        }
+    }
+
+    function showWinMessage() {
+      console.log("Attempting to display WIN message and play venusliscious.mp3 fanfare...");
+      gameActive = false;
+      clearInterval(gameLoop);
+      clearInterval(timerCountdown);
+      
+      // Detener la música de fondo
+      if (htmlBackgroundMusic) {
+        htmlBackgroundMusic.pause();
+        htmlBackgroundMusic.currentTime = 0;
+        backgroundMusicPlaying = false;
+      }
+
+      messageOverlay.style.display = "flex";
+      messageTitle.textContent = "VENUSLICIOUS, you are Venusian People!!! 🚀";
+      messageImg1.src = "mano.gif";
+      messageImg2.src = "venusian.png";
+      messageOverlay.classList.remove('game-over');
+
+      // --- Lógica de reproducción para venusliscious.mp3 (Victoria) ---
+      // Forzar el AudioContext a estar 'running' y luego intentar reproducir
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+            console.log('AudioContext resumed for win sound.');
+            if (winSoundLoadedBuffer) {
+                playAudioContextSound(winSoundLoadedBuffer, 1.0);
+            } else {
+                console.warn("Win sound buffer not available after context resume. Falling back to HTMLAudioElement.");
+                htmlWinFanfareSound.currentTime = 0;
+                htmlWinFanfareSound.volume = 1.0;
+                htmlWinFanfareSound.play().catch(e => console.error("Error playing HTMLAudioElement win sound (fallback after resume):", e));
+            }
+        }).catch(e => {
+            console.error("Failed to resume AudioContext for win sound:", e);
+            // Fallback a HTMLAudioElement si la reanudación falla
+            htmlWinFanfareSound.currentTime = 0;
+            htmlWinFanfareSound.volume = 1.0;
+            htmlWinFanfareSound.play().catch(e => console.error("Error playing HTMLAudioElement win sound (fallback after failed resume):", e));
+        });
+      } else if (winSoundLoadedBuffer) {
+          playAudioContextSound(winSoundLoadedBuffer, 1.0);
+      } else {
+          console.warn("Win sound buffer not available. Falling back to HTMLAudioElement directly.");
+          htmlWinFanfareSound.currentTime = 0;
+          htmlWinFanfareSound.volume = 1.0;
+          htmlWinFanfareSound.play().catch(e => console.error("Error playing HTMLAudioElement win sound (direct fallback):", e));
+      }
+    }
+
+    function endGameByTime() {
+      console.log("Time's Up! Game Over. Attempting to play loser.mp3 sound.");
+      gameActive = false;
+      clearInterval(gameLoop);
+      clearInterval(timerCountdown);
+      
+      // Detener la música de fondo
+      if (htmlBackgroundMusic) {
+        htmlBackgroundMusic.pause();
+        htmlBackgroundMusic.currentTime = 0;
+        backgroundMusicPlaying = false;
+      }
+
+      messageOverlay.style.display = "flex";
+      messageTitle.textContent = "Time's Up! Game Over!";
+      messageImg1.src = "mano.gif";
+      messageImg2.src = "venusian.png";
+      messageOverlay.classList.add('game-over');
+
+      // --- Lógica de reproducción para loser.mp3 (Derrota) ---
+      // Forzar el AudioContext a estar 'running' y luego intentar reproducir
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+            console.log('AudioContext resumed for lose sound.');
+            if (loseSoundLoadedBuffer) {
+                playAudioContextSound(loseSoundLoadedBuffer, 1.0);
+            } else {
+                console.warn("Lose sound buffer not available after context resume. Falling back to HTMLAudioElement.");
+                htmlGameOverSound.currentTime = 0;
+                htmlGameOverSound.volume = 1.0;
+                htmlGameOverSound.play().catch(e => console.error("Error playing HTMLAudioElement lose sound (fallback after resume):", e));
+            }
+        }).catch(e => {
+            console.error("Failed to resume AudioContext for lose sound:", e);
+            // Fallback a HTMLAudioElement si la reanudación falla
+            htmlGameOverSound.currentTime = 0;
+            htmlGameOverSound.volume = 1.0;
+            htmlGameOverSound.play().catch(e => console.error("Error playing HTMLAudioElement lose sound (fallback after failed resume):", e));
+        });
+      } else if (loseSoundLoadedBuffer) {
+          playAudioContextSound(loseSoundLoadedBuffer, 1.0);
+      } else {
+          console.warn("Lose sound buffer not loaded. Falling back to HTMLAudioElement directly.");
+          htmlGameOverSound.currentTime = 0;
+          htmlGameOverSound.volume = 1.0;
+          htmlGameOverSound.play().catch(e => console.error("Error playing HTMLAudioElement lose sound (direct fallback):", e));
+      }
+    }
+
+    // --- Initial Setup ---
+    initializeAudioContextAndLoadSounds();
+    createBoard();
+    console.log("Initial setup complete. Waiting for first user interaction.");
+  </script>
+</body>
+</html>
