@@ -220,22 +220,11 @@
         color: #ff0033;
         text-shadow: 0 0 10px #ff0033, 0 0 20px #ff0033, 0 0 30px #ff0033;
     }
-  </style> <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#000000"/> <!-- Cambia el color si quieres -->
-
-<script>
-  // Registra el Service Worker
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function() {
-      navigator.serviceWorker.register('service-worker.js').then(function(registration) {
-        console.log('ServiceWorker registrado con exito:', registration.scope);
-      }).catch(function(err) {
-        console.log('Fallo el registro del ServiceWorker:', err);
-      });
-    });
-  }
-</script>
-
+  </style>
+  <!-- Esto conecta tu juego con el archivo manifest.json para la PWA -->
+  <link rel="manifest" href="manifest.json">
+  <!-- Define el color de la barra superior del navegador en el telefono -->
+  <meta name="theme-color" content="#000000"/> 
 </head>
 <body>
 
@@ -266,6 +255,23 @@
   </div>
 
   <script>
+    // <<<<< Script del juego va aquí. Se han corregido las referencias a 'venusound' y 'venusciously' >>>>>
+
+    // Registra el Service Worker (necesita service-worker.js en la misma carpeta para funcionar)
+    // NOTA IMPORTANTE: El Service Worker solo se registrará y funcionará si el juego se abre
+    // desde un servidor web (http:// o https://), NO directamente desde el explorador de archivos (file://).
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('service-worker.js')
+                .then(registration => {
+                    console.log('Service Worker registrado con éxito:', registration);
+                })
+                .catch(error => {
+                    console.error('Fallo el registro del Service Worker:', error);
+                });
+        });
+    }
+
     const board = document.getElementById("board");
     const scoreDisplay = document.getElementById("score");
     const timerDisplay = document.getElementById("timer");
@@ -278,13 +284,11 @@
     const htmlMatchSoundThree = document.getElementById("matchSoundThree");
     const htmlMatchSoundFour = document.getElementById("matchSoundFour");
     const htmlBackgroundMusic = document.getElementById("backgroundMusic");
-    // References to the HTML Audio Elements for win/lose
     const htmlWinFanfareSound = document.getElementById("winFanfareSound");
     const htmlGameOverSound = document.getElementById("gameOverSound");
 
     let audioContext = null;
     let backgroundMusicPlaying = false;
-    // Audio buffers for the new sounds
     let winSoundLoadedBuffer = null;
     let loseSoundLoadedBuffer = null;
 
@@ -307,80 +311,84 @@
     let score = 0;
 
     // --- AudioContext Initialization & Sound Loading ---
+    // Definición de AudioContext y carga de sonidos
+    const soundFiles = [
+        { name: 'venusound', mp3: 'venusound.mp3', ogg: 'venusound.ogg' }, // ¡CORREGIDO AQUÍ!
+        { name: 'venusci', mp3: 'venusci.mp3', ogg: 'venusci.ogg' },
+        { name: 'venusciously', mp3: 'venusciously.mp3', ogg: 'venusciously.ogg' }, // ¡CORREGIDO AQUÍ!
+        { name: 'venusliscious', mp3: 'venusliscious.mp3', ogg: 'venusliscious.ogg' },
+        { name: 'loser', mp3: 'loser.mp3', ogg: 'loser.ogg' }
+    ];
+
     async function initializeAudioContextAndLoadSounds() {
         if (!window.AudioContext && !window.webkitAudioContext) {
-            console.warn("Web Audio API not supported. Audio might not play.");
+            console.warn("Web Audio API no soportada. El audio podría no reproducirse.");
             return;
         }
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            console.log("AudioContext initialized.");
+            console.log("AudioContext inicializado.");
         }
 
         const resumeContextOnGesture = () => {
             if (audioContext && audioContext.state === 'suspended') {
                 audioContext.resume().then(() => {
-                    console.log('AudioContext resumed successfully.');
+                    console.log('AudioContext reanudado con éxito.');
                     document.documentElement.removeEventListener('mousedown', resumeContextOnGesture);
                     document.documentElement.removeEventListener('keydown', resumeContextOnGesture);
                     document.documentElement.removeEventListener('touchstart', resumeContextOnGesture);
                     if (!backgroundMusicPlaying && gameActive) {
-                        htmlBackgroundMusic.play().catch(e => console.warn("Background music failed to play after context resume:", e));
+                        htmlBackgroundMusic.play().catch(e => console.warn("Música de fondo no se pudo reproducir después de reanudar el contexto:", e));
                         backgroundMusicPlaying = true;
                     }
-                }).catch(e => console.error('Failed to resume AudioContext:', e));
+                }).catch(e => console.error('Fallo al reanudar AudioContext:', e));
             }
         };
-        // Add event listeners to resume AudioContext on first user interaction
         document.documentElement.addEventListener('mousedown', resumeContextOnGesture, { once: true });
         document.documentElement.addEventListener('keydown', resumeContextOnGesture, { once: true });
         document.documentElement.addEventListener('touchstart', resumeContextOnGesture, { once: true });
 
-
         try {
-            // Load the new win sound (venusliscious.mp3)
             winSoundLoadedBuffer = await loadSoundBuffer(htmlWinFanfareSound.src);
-            console.log("Win sound (venusliscious.mp3) loaded into buffer.");
-            // Load the new lose sound (loser.mp3)
+            console.log("Sonido de victoria (venusliscious.mp3) cargado en buffer.");
             loseSoundLoadedBuffer = await loadSoundBuffer(htmlGameOverSound.src);
-            console.log("Game Over sound (loser.mp3) loaded into buffer.");
+            console.log("Sonido de Game Over (loser.mp3) cargado en buffer.");
         } catch (e) {
-            console.error("Error pre-loading sounds for AudioContext:", e);
+            console.error("Error precargando sonidos para AudioContext:", e);
         }
     }
 
     async function loadSoundBuffer(url) {
-        if (!audioContext) throw new Error("AudioContext not ready for buffer load.");
+        if (!audioContext) throw new Error("AudioContext no está listo para la carga del buffer.");
         try {
             const response = await fetch(url);
             const arrayBuffer = await response.arrayBuffer();
             return await audioContext.decodeAudioData(arrayBuffer);
         } catch (e) {
-            console.error(`Failed to load audio buffer from ${url}:`, e);
+            console.error(`Fallo al cargar el buffer de audio desde ${url}:`, e);
             throw e;
         }
     }
 
     function playAudioContextSound(buffer, volume = 1.0) {
         if (!audioContext || !buffer) {
-            console.warn("AudioContext not ready or buffer missing. Cannot play sound via AudioContext.");
+            console.warn("AudioContext no está listo o el buffer falta. No se puede reproducir sonido via AudioContext.");
             return false;
         }
 
-        // Ensure AudioContext is running before playing
         if (audioContext.state === 'suspended') {
             audioContext.resume().then(() => {
-                console.log('AudioContext resumed for sound playback.');
+                console.log('AudioContext reanudado para reproducción de sonido.');
                 const source = audioContext.createBufferSource();
                 source.buffer = buffer;
                 const gainNode = audioContext.createGain();
                 gainNode.gain.value = volume;
                 source.connect(gainNode).connect(audioContext.destination);
                 source.start(0);
-                console.log(`Playing AudioContext sound: ${buffer.duration.toFixed(2)}s at volume ${volume}`);
+                console.log(`Reproduciendo sonido AudioContext: ${buffer.duration.toFixed(2)}s al volumen ${volume}`);
             }).catch(e => {
-                console.error("Failed to resume AudioContext for sound playback:", e);
-                return false; // Indicate failure
+                console.error("Fallo al reanudar AudioContext para reproducción de sonido:", e);
+                return false;
             });
         } else {
             const source = audioContext.createBufferSource();
@@ -389,9 +397,9 @@
             gainNode.gain.value = volume;
             source.connect(gainNode).connect(audioContext.destination);
             source.start(0);
-            console.log(`Playing AudioContext sound: ${buffer.duration.toFixed(2)}s at volume ${volume}`);
+            console.log(`Reproduciendo sonido AudioContext: ${buffer.duration.toFixed(2)}s al volumen ${volume}`);
         }
-        return true; // Indicate success (or attempt initiated)
+        return true;
     }
 
     // --- Game Logic ---
@@ -425,19 +433,19 @@
         board.appendChild(cell);
         cells.push(cell);
       }
-      console.log("Board created with initial gems.");
+      console.log("Tablero creado con gemas iniciales.");
     }
 
     function handleFirstGameInteraction() {
         if (!gameActive) {
-            console.log("First gem interaction detected. Starting game and background music.");
+            console.log("Primera interacción con gema detectada. Iniciando juego y música de fondo.");
             
             if (!backgroundMusicPlaying) {
                 htmlBackgroundMusic.play().then(() => {
                     backgroundMusicPlaying = true;
-                    console.log("Background music (venusound.mp3) started successfully.");
+                    console.log("Música de fondo (venusound.mp3) iniciada con éxito."); // ¡CORREGIDO AQUÍ!
                 }).catch(e => {
-                    console.warn("Background music autoplay prevented. Waiting for AudioContext resume.", e);
+                    console.warn("Reproducción automática de música de fondo impedida. Esperando a que AudioContext se reanude.", e);
                 });
             }
 
@@ -473,11 +481,11 @@
           endGameByTime();
         }
       }, 1000);
-      console.log("Game loop and timer started.");
+      console.log("Bucle del juego y temporizador iniciados.");
     }
 
     function resetGame() {
-      console.log("Resetting game...");
+      console.log("Reiniciando juego...");
       gameActive = false;
       clearInterval(gameLoop);
       clearInterval(timerCountdown);
@@ -494,7 +502,7 @@
         htmlBackgroundMusic.currentTime = 0;
       }
       backgroundMusicPlaying = false;
-      console.log("Game reset complete. Ready for new game.");
+      console.log("Juego reiniciado. Listo para nueva partida.");
     }
 
     function dragStart(e) {
@@ -510,7 +518,7 @@
         const cellIdBeingReplaced = parseInt(e.target.id);
 
         if (cellIdBeingDragged === null || isNaN(cellIdBeingDragged)) {
-            console.warn("dragDrop called without a valid cellIdBeingDragged.");
+            console.warn("dragDrop llamado sin cellIdBeingDragged válido.");
             return;
         }
 
@@ -528,13 +536,13 @@
             swapGems(cellIdBeingDragged, cellIdBeingReplaced);
             checkMatchesAndRefill();
         } else {
-            // console.log(`Invalid move: IDs ${cellIdBeingDragged} and ${cellIdBeingReplaced} are not adjacent.`);
+            // console.log(`Movimiento inválido: IDs ${cellIdBeingDragged} y ${cellIdBeingReplaced} no son adyacentes.`);
         }
         cellIdBeingDragged = null;
     }
 
     function dragEnd() {
-        // Handled in dragDrop
+        // Manejado en dragDrop
     }
 
     function swapGems(id1, id2) {
@@ -558,10 +566,10 @@
     function playMatchSound(type = "triple") {
       if (type === "quad") {
         htmlMatchSoundFour.currentTime = 0;
-        htmlMatchSoundFour.play().catch(e => console.error("Error playing quad sound:", e));
+        htmlMatchSoundFour.play().catch(e => console.error("Error al reproducir sonido cuádruple:", e));
       } else {
         htmlMatchSoundThree.currentTime = 0;
-        htmlMatchSoundThree.play().catch(e => console.error("Error playing triple sound:", e));
+        htmlMatchSoundThree.play().catch(e => console.error("Error al reproducir sonido triple:", e));
       }
     }
 
@@ -620,7 +628,7 @@
         do {
             iteration++;
             if (iteration > maxIterations) {
-                console.error("checkMatchesAndRefill: Max iterations reached. Possible logic issue or very complex cascade.");
+                console.error("checkMatchesAndRefill: Máximas iteraciones alcanzadas. Posible problema lógico o cascada muy compleja.");
                 break;
             }
 
@@ -686,7 +694,6 @@
 
         const boardLetters = cells.map(cell => {
             const cellClasses = Array.from(cell.classList);
-            // Handle 'venusian' and 'mano' gems contributing to 'N'
             if (cellClasses.includes('venusian') || cellClasses.includes('mano')) {
                 return 'N';
             }
@@ -698,7 +705,7 @@
         for (let row = 0; row < boardSize; row++) {
             const rowString = boardLetters.substring(row * boardSize, (row * boardSize) + boardSize);
             if (rowString.includes(targetWord)) {
-                console.log(`WIN Condition met: 'VENUSIAN' found horizontally in row ${row}. Full row string: "${rowString}"`);
+                console.log(`Condición de Victoria cumplida: 'VENUSIAN' encontrado horizontalmente en la fila ${row}. Cadena de fila completa: "${rowString}"`);
                 showWinMessage();
                 return;
             }
@@ -716,7 +723,7 @@
                 }
             }
             if (colString.includes(targetWord)) {
-                console.log(`WIN Condition met: 'VENUSIAN' found vertically in column ${col}. Full column string: "${colString}"`);
+                console.log(`Condición de Victoria cumplida: 'VENUSIAN' encontrado verticalmente en la columna ${col}. Cadena de columna completa: "${colString}"`);
                 showWinMessage();
                 return;
             }
@@ -724,7 +731,7 @@
     }
 
     function showWinMessage() {
-      console.log("Attempting to display WIN message and play venusliscious.mp3 fanfare...");
+      console.log("Intentando mostrar mensaje de VICTORIA y reproducir venusliscious.mp3...");
       gameActive = false;
       clearInterval(gameLoop);
       clearInterval(timerCountdown);
@@ -743,37 +750,35 @@
       messageOverlay.classList.remove('game-over');
 
       // --- Lógica de reproducción para venusliscious.mp3 (Victoria) ---
-      // Forzar el AudioContext a estar 'running' y luego intentar reproducir
       if (audioContext && audioContext.state === 'suspended') {
         audioContext.resume().then(() => {
-            console.log('AudioContext resumed for win sound.');
+            console.log('AudioContext reanudado para sonido de victoria.');
             if (winSoundLoadedBuffer) {
                 playAudioContextSound(winSoundLoadedBuffer, 1.0);
             } else {
-                console.warn("Win sound buffer not available after context resume. Falling back to HTMLAudioElement.");
+                console.warn("Buffer de sonido de victoria no disponible después de reanudar el contexto. Volviendo a HTMLAudioElement.");
                 htmlWinFanfareSound.currentTime = 0;
                 htmlWinFanfareSound.volume = 1.0;
-                htmlWinFanfareSound.play().catch(e => console.error("Error playing HTMLAudioElement win sound (fallback after resume):", e));
+                htmlWinFanfareSound.play().catch(e => console.error("Error al reproducir sonido de victoria (fallback después de reanudar):", e));
             }
         }).catch(e => {
-            console.error("Failed to resume AudioContext for win sound:", e);
-            // Fallback a HTMLAudioElement si la reanudación falla
+            console.error("Fallo al reanudar AudioContext para sonido de victoria:", e);
             htmlWinFanfareSound.currentTime = 0;
             htmlWinFanfareSound.volume = 1.0;
-            htmlWinFanfareSound.play().catch(e => console.error("Error playing HTMLAudioElement win sound (fallback after failed resume):", e));
+            htmlWinFanfareSound.play().catch(e => console.error("Error al reproducir sonido de victoria (fallback después de fallar la reanudación):", e));
         });
       } else if (winSoundLoadedBuffer) {
           playAudioContextSound(winSoundLoadedBuffer, 1.0);
       } else {
-          console.warn("Win sound buffer not available. Falling back to HTMLAudioElement directly.");
+          console.warn("Buffer de sonido de victoria no cargado. Volviendo directamente a HTMLAudioElement.");
           htmlWinFanfareSound.currentTime = 0;
           htmlWinFanfareSound.volume = 1.0;
-          htmlWinFanfareSound.play().catch(e => console.error("Error playing HTMLAudioElement win sound (direct fallback):", e));
+          htmlWinFanfareSound.play().catch(e => console.error("Error al reproducir sonido de victoria (fallback directo):", e));
       }
     }
 
     function endGameByTime() {
-      console.log("Time's Up! Game Over. Attempting to play loser.mp3 sound.");
+      console.log("¡Se acabo el tiempo! Game Over. Intentando reproducir loser.mp3.");
       gameActive = false;
       clearInterval(gameLoop);
       clearInterval(timerCountdown);
@@ -786,45 +791,43 @@
       }
 
       messageOverlay.style.display = "flex";
-      messageTitle.textContent = "Time's Up! Game Over!";
+      messageTitle.textContent = "¡Se acabo el tiempo! ¡Game Over!";
       messageImg1.src = "mano.gif";
       messageImg2.src = "venusian.png";
       messageOverlay.classList.add('game-over');
 
       // --- Lógica de reproducción para loser.mp3 (Derrota) ---
-      // Forzar el AudioContext a estar 'running' y luego intentar reproducir
       if (audioContext && audioContext.state === 'suspended') {
         audioContext.resume().then(() => {
-            console.log('AudioContext resumed for lose sound.');
+            console.log('AudioContext reanudado para sonido de derrota.');
             if (loseSoundLoadedBuffer) {
                 playAudioContextSound(loseSoundLoadedBuffer, 1.0);
             } else {
-                console.warn("Lose sound buffer not available after context resume. Falling back to HTMLAudioElement.");
+                console.warn("Buffer de sonido de derrota no disponible después de reanudar el contexto. Volviendo a HTMLAudioElement.");
                 htmlGameOverSound.currentTime = 0;
                 htmlGameOverSound.volume = 1.0;
-                htmlGameOverSound.play().catch(e => console.error("Error playing HTMLAudioElement lose sound (fallback after resume):", e));
+                htmlGameOverSound.play().catch(e => console.error("Error al reproducir sonido de derrota (fallback después de reanudar):", e));
             }
         }).catch(e => {
-            console.error("Failed to resume AudioContext for lose sound:", e);
-            // Fallback a HTMLAudioElement si la reanudación falla
+            console.error("Fallo al reanudar AudioContext para sonido de derrota:", e);
             htmlGameOverSound.currentTime = 0;
             htmlGameOverSound.volume = 1.0;
-            htmlGameOverSound.play().catch(e => console.error("Error playing HTMLAudioElement lose sound (fallback after failed resume):", e));
+            htmlGameOverSound.play().catch(e => console.error("Error al reproducir sonido de derrota (fallback después de fallar la reanudación):", e));
         });
       } else if (loseSoundLoadedBuffer) {
           playAudioContextSound(loseSoundLoadedBuffer, 1.0);
       } else {
-          console.warn("Lose sound buffer not loaded. Falling back to HTMLAudioElement directly.");
+          console.warn("Buffer de sonido de derrota no cargado. Volviendo directamente a HTMLAudioElement.");
           htmlGameOverSound.currentTime = 0;
           htmlGameOverSound.volume = 1.0;
-          htmlGameOverSound.play().catch(e => console.error("Error playing HTMLAudioElement lose sound (direct fallback):", e));
+          htmlGameOverSound.play().catch(e => console.error("Error al reproducir sonido de derrota (fallback directo):", e));
       }
     }
 
     // --- Initial Setup ---
     initializeAudioContextAndLoadSounds();
     createBoard();
-    console.log("Initial setup complete. Waiting for first user interaction.");
+    console.log("Configuración inicial completa. Esperando la primera interacción del usuario.");
   </script>
 </body>
 </html>

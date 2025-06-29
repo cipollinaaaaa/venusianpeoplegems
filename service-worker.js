@@ -8,14 +8,19 @@ const urlsToCache = [
   'index.html',
   'venusian.png',
   'mano.gif',
-  'vensusound.mp3',
+  'venusound.mp3', // ¡CORREGIDO AQUÍ!
   'venusci.mp3',
-  'venu sciously.mp3',
+  'venusciously.mp3', // ¡CORREGIDO AQUÍ!
   'venusliscious.mp3',
   'loser.mp3',
-  // ¡IMPORTANTE! Agrega aqui cualquier otro archivo .css o .js que use tu juego.
-  // Ejemplo: 'mi_estilo.css', 'mi_script.js', 'otra_imagen.jpg', etc.
-  // Si tienes carpetas (ej. 'css/estilos.css'), listalas con su carpeta.
+  // Si tienes archivos .ogg, agregalos aqui tambien:
+  'venusound.ogg', // Agrega si conviertes a OGG
+  'venusci.ogg',   // Agrega si conviertes a OGG
+  'venusciously.ogg', // Agrega si conviertes a OGG
+  'venusliscious.ogg', // Agrega si conviertes a OGG
+  'loser.ogg'      // Agrega si conviertes a OGG
+  // ¡IMPORTANTE! Agrega aqui cualquier otro archivo .css o .js que use tu juego si no esta incrustado.
+  // Pero con este HTML unificado, solo necesitarian estar si los separas de nuevo.
 ];
 
 // Evento 'install': se activa la primera vez que el Service Worker se instala
@@ -34,7 +39,6 @@ self.addEventListener('install', event => {
 
 // Evento 'fetch': intercepta cada peticion que hace tu juego (para buscar imagenes, sonidos, etc.)
 self.addEventListener('fetch', event => {
-  // <<<<< AQUI ESTABA EL ERROR DE ESCRITURA: "respondSwith" AHORA ES "respondWith" >>>>>
   event.respondWith(
     caches.match(event.request)
       .then(response => {
